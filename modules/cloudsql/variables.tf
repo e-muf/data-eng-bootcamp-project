@@ -1,8 +1,3 @@
-variable "project_id" {
-  description = "Google Project ID"
-  type        = string
-}
-
 variable "region" {
   description = "Google Cloud region"
   default     = "us-central1"
@@ -13,27 +8,12 @@ variable "location" {
   description = "Google Cloud zone"
 }
 
-variable "credentials_file" {
-  description = "Google Cloud credentials"
-  type        = string
-  sensitive   = true
-}
-
-# Google Cloud Storage
-variable "data_path" {
-  description = "Path to CSV files"
-  type        = string
-}
-
-# Cloud SQL
 variable "instance_name" {
   description = "Database instance name"
-  default     = "pg-data-bootcam9"
 }
 
 variable "instance_tier" {
   description = "SQL Instance tier"
-  default     = "db-g1-small"
 }
 
 variable "database_version" {
