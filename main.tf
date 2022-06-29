@@ -26,3 +26,9 @@ module "cloudsql" {
   db_username      = var.db_username
   db_password      = var.db_password
 }
+
+module "composer" {
+  source   = "./modules/composer"
+  region   = var.region
+  location = var.location
+}
