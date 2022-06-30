@@ -28,7 +28,7 @@ variable "data_path" {
 # Cloud SQL
 variable "instance_name" {
   description = "Database instance name"
-  default     = "pg-data-bootcam9"
+  default     = "pg-data-bootcam20"
 }
 
 variable "instance_tier" {
@@ -61,4 +61,15 @@ variable "db_password" {
   description = "Database administrator password"
   type        = string
   sensitive   = true
+}
+
+# GKE
+variable "gke_num_nodes" {
+  default     = 2
+  description = "number of gke nodes"
+}
+
+variable "machine_type" {
+  type = string
+  default = "n1-standard-1"
 }
