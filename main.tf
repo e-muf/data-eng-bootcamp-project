@@ -12,6 +12,7 @@ module "gcs" {
   project_id     = var.project_id
   project_bucket = "${var.project_id}-bucket"
   data_path      = var.data_path
+  gcs_dag_bucket = module.composer.airflow_dag_gcs_buket
 }
 
 module "cloudsql" {
@@ -28,7 +29,13 @@ module "cloudsql" {
 }
 
 module "composer" {
-  source   = "./modules/composer"
-  region   = var.region
-  location = var.location
+  source                   = "./modules/composer"
+  region                   = var.region
+  location                 = var.location
+  project_bucket           = "${var.project_id}-bucket"
+  db_username              = var.db_username
+  db_password              = var.db_password
+  instance_ip_address      = module.cloudsql.instance_ip_address
+  instance_name            = var.instance_name
+  database_name            = var.database_name
 }
