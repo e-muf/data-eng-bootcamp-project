@@ -15,13 +15,7 @@ resource "google_composer_environment" "composer_cluster" {
       python_version = 3
 
       env_variables = {
-        "GCS_PROJECT_BUCKET"                 = var.project_bucket,
-        "GCSQL_POSTGRES_USER"                = var.db_username
-        "GCSQL_POSTGRES_PASSWORD"            = var.db_password
-        "GCSQL_POSTGRES_PUBLIC_IP"           = var.instance_ip_address
-        "GCP_REGION"                         = var.region
-        "GCSQL_POSTGRES_INSTANCE_NAME_QUERY" = var.instance_name
-        "GCSQL_POSTGRES_DATABASE_NAME"       = var.database_name
+        "AIRFLOW_VAR_CONNECTION_SETTINGS" = "{ \"GCS_PROJECT_BUCKET\": \"${var.project_bucket}\", \"GCSQL_POSTGRES_USER\": \"${var.db_username}\", \"GCSQL_POSTGRES_PASSWORD\": \"${var.db_password}\", \"GCSQL_POSTGRES_PUBLIC_IP\": \"${var.instance_ip_address}\", \"GCP_REGION\": \"${var.region}\", \"GCSQL_POSTGRES_INSTANCE_NAME_QUERY\": \"${var.instance_name}\", \"GCSQL_POSTGRES_DATABASE_NAME\": \"${var.database_name}\"}"
       }
     }
   }

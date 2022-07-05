@@ -1,23 +1,33 @@
 import os
+from datetime import timedelta
+from queue import Empty
 from urllib.parse import quote_plus
 
+from numpy import empty
+
 from airflow import DAG
+from airflow.models import Variable
+from airflow.operators.dummy_operator import DummyOperator
 from airflow.contrib.operators.gcp_sql_operator import CloudSQLExecuteQueryOperator, CloudSqlInstanceImportOperator
 from airflow.utils.dates import days_ago
 
 args = {
-  "owner": "emanuel-dev"
+  "owner": "emanuel-dev",
+  "retries": 1,
+  "retray_delay": timedelta(minutes=5),
+  'start_date': days_ago(1)
 }
 
-GCS_SOURCE_DATA_BUCKET = os.getenv('GCS_PROJECT_BUCKET')
-GCSQL_POSTGRES_USER = os.getenv('GCSQL_POSTGRES_USER')
-GCSQL_POSTGRES_PASSWORD = os.getenv('GCSQL_POSTGRES_PASSWORD')
-GCSQL_POSTGRES_PUBLIC_PORT = 5432
-GCSQL_POSTGRES_PUBLIC_IP = os.getenv('GCSQL_POSTGRES_PUBLIC_IP')
+conn_settings = Variable.get("connection_settings", deserialize_json=True)
 GCP_PROJECT_ID =  os.getenv('GCP_PROJECT')
-GCP_REGION = os.getenv('GCP_REGION')
-GCSQL_POSTGRES_INSTANCE_NAME_QUERY = os.getenv('GCSQL_POSTGRES_INSTANCE_NAME_QUERY')
-GCSQL_POSTGRES_DATABASE_NAME = os.getenv('GCSQL_POSTGRES_DATABASE_NAME')
+GCSQL_POSTGRES_PUBLIC_PORT = 5432
+GCS_SOURCE_DATA_BUCKET = conn_settings['GCS_PROJECT_BUCKET']
+GCSQL_POSTGRES_USER = conn_settings['GCSQL_POSTGRES_USER']
+GCSQL_POSTGRES_PASSWORD = conn_settings['GCSQL_POSTGRES_PASSWORD']
+GCSQL_POSTGRES_PUBLIC_IP = conn_settings['GCSQL_POSTGRES_PUBLIC_IP']
+GCP_REGION = conn_settings['GCP_REGION']
+GCSQL_POSTGRES_INSTANCE_NAME_QUERY = conn_settings['GCSQL_POSTGRES_INSTANCE_NAME_QUERY']
+GCSQL_POSTGRES_DATABASE_NAME = conn_settings['GCSQL_POSTGRES_DATABASE_NAME']
 
 postgres_kwargs = dict(
   user = quote_plus(GCSQL_POSTGRES_USER),
@@ -72,12 +82,19 @@ with DAG (
   dag_id = "load_data",
   default_args = args,
   schedule_interval = "0 5 * * *",
-  start_date = days_ago(1)
 ) as dag:
+  dag_start = DummyOperator(
+    task_id = "dag_start"
+  )
+
+  dag_end = DummyOperator(
+    task_id = "dag_end"
+  )
+
   ddl_user_purchase_task = CloudSQLExecuteQueryOperator(
     gcp_cloudsql_conn_id = 'public_postgres_tcp',
     sql = SQL,
-    task_id = "create_ddl"
+    task_id = "create_user_purchase_table"
   )
 
   sql_import_task = CloudSqlInstanceImportOperator(
@@ -86,7 +103,4 @@ with DAG (
     task_id = 'gcs_to_cloudsql'
   )
 
-  ddl_user_purchase_task >> sql_import_task
-
-if __name__ == "__main__":
-  dag.cli()
+  dag_start >> ddl_user_purchase_task >> sql_import_task >> dag_end
