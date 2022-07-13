@@ -9,14 +9,19 @@ variable "region" {
   type        = string
 }
 
-variable "location" {
-  description = "Google Cloud zone"
+variable "db_username" {
+  description = "Database administrator username"
+  type        = string
+  sensitive   = true
 }
 
-variable "project_bucket" {
-  description = "Google Cloud Storage bucket"
+variable "db_password" {
+  description = "Database administrator password"
   type        = string
+  sensitive   = true
 }
+
+variable "instance_ip_address" { }
 
 variable "instance_name" {
   description = "Database instance name"

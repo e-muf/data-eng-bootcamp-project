@@ -14,7 +14,3 @@ output "database_connection" {
   value = google_sql_database.database.self_link
 }
 
-output "database" {
-  value = google_sql_database.database.id
-}
-

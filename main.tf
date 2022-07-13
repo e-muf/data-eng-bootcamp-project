@@ -28,14 +28,23 @@ module "cloudsql" {
   db_password      = var.db_password
 }
 
+module "sm" {
+  source              = "./modules/sm"
+  project_id          = var.project_id
+  region              = var.region
+  db_username         = var.db_username
+  db_password         = var.db_password
+  instance_ip_address = module.cloudsql.instance_ip_address
+  instance_name       = module.cloudsql.instance_name
+  database_name       = var.database_name
+}
+
 module "composer" {
-  source                   = "./modules/composer"
-  region                   = var.region
-  location                 = var.location
-  project_bucket           = "${var.project_id}-bucket"
-  db_username              = var.db_username
-  db_password              = var.db_password
-  instance_ip_address      = module.cloudsql.instance_ip_address
-  instance_name            = var.instance_name
-  database_name            = var.database_name
+  source         = "./modules/composer"
+  project_id     = var.project_id
+  region         = var.region
+  location       = var.location 
+  project_bucket = "${var.project_id}-bucket"
+  instance_name  = module.cloudsql.instance_name
+  database_name  = var.database_name
 }
