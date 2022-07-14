@@ -9,6 +9,11 @@ from airflow import DAG
 from airflow.models import Variable
 from airflow.operators.dummy_operator import DummyOperator
 from airflow.contrib.operators.gcp_sql_operator import CloudSQLExecuteQueryOperator, CloudSqlInstanceImportOperator
+from airflow.providers.google.cloud.operators.dataproc import (
+  DataprocCreateClusterOperator,
+  DataprocDeleteClusterOperator,
+  DataprocSubmitJobOperator
+)
 from airflow.utils.dates import days_ago
 
 args = {
@@ -19,16 +24,21 @@ args = {
 }
 
 GCP_PROJECT_ID =  os.getenv('GCP_PROJECT')
-GCS_SOURCE_DATA_BUCKET = os.getenv('GCS_SOURCE_DATA_BUCKET')
+GCP_REGION = "us-central1"
+GCS_PROJECT_BUCKET = os.getenv('GCS_SOURCE_DATA_BUCKET')
 GCSQL_POSTGRES_DATABASE_NAME = os.getenv('GCSQL_POSTGRES_DATABASE_NAME')
 GCSQL_POSTGRES_INSTANCE_NAME_QUERY = os.getenv('GCSQL_POSTGRES_INSTANCE_NAME_QUERY')
 
+CLUSTER_NAME = 'ephemeral-spark-cluster-{{ ds_nodash }}'
+
+
 user_purchase_source_objet = "data/user_purchase.csv"
+pyspark_job_object = "code/transform_reviews.py"
 schema_table_name = "movies_schema.user_purchase"
 
 SQL = f"""
-CREATE SCHEMA movies_schema;
-CREATE TABLE {schema_table_name} (
+CREATE SCHEMA IF NOT EXISTS movies_schema;
+CREATE TABLE IF NOT EXISTS {schema_table_name} (
   invoice_number varchar(10),
   stock_code varchar(20),
   detail varchar(1000),
@@ -44,10 +54,29 @@ import_body = {
   "importContext": {
     "database": GCSQL_POSTGRES_DATABASE_NAME,
     "fileType": "csv",
-    "uri": f'gs://{GCS_SOURCE_DATA_BUCKET}/{user_purchase_source_objet}',
+    "uri": f'gs://{GCS_PROJECT_BUCKET}/{user_purchase_source_objet}',
     "csvImportOptions": {
       "table": schema_table_name
     }
+  }
+}
+
+PYSPARK_JOB = {
+  "reference": {"project_id": GCP_PROJECT_ID},
+  "placement": {"cluster_name": CLUSTER_NAME},
+  "pyspark_job": {
+    "main_python_file_uri": f"gs://{GCS_PROJECT_BUCKET}/{pyspark_job_object}"
+  }
+}
+
+cluster_config_json = {
+  "master_config": {
+    "num_instances": 1,
+    "machine_type_uri": "n1-standard-2",
+    "disk_config": {"boot_disk_type": "pd-standard", "boot_disk_size_gb": 100}
+  },
+  "worker_config": {
+    "num_instances": 0
   }
 }
 
@@ -76,4 +105,29 @@ with DAG (
     task_id = 'gcs_to_cloudsql'
   )
 
-  dag_start >> ddl_user_purchase_task >> sql_import_task >> dag_end
+  create_cluster = DataprocCreateClusterOperator(
+    task_id = "create_cluster",
+    project_id = GCP_PROJECT_ID,
+    cluster_config = cluster_config_json,
+    region = GCP_REGION,
+    cluster_name = CLUSTER_NAME
+  )
+
+  pyspark_task = DataprocSubmitJobOperator(
+    task_id = "pyspark_task",
+    job = PYSPARK_JOB,
+    location = GCP_REGION,
+    project_id = GCP_PROJECT_ID
+  )
+
+  delete_cluster = DataprocDeleteClusterOperator(
+    task_id = "delete_cluster",
+    project_id = GCP_PROJECT_ID,
+    cluster_name = CLUSTER_NAME,
+    region = GCP_REGION
+  )
+
+  (dag_start >> 
+    ddl_user_purchase_task >> sql_import_task >>
+    create_cluster >> pyspark_task >> delete_cluster >> 
+  dag_end)
