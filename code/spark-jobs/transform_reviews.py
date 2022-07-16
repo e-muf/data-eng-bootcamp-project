@@ -10,8 +10,14 @@ spark = SparkSession.builder \
   .appName('transform_data') \
   .getOrCreate()
 
+client = secretmanager.SecretManagerServiceClient()
 # %%
 GCP_PROJECT_BUCKET = 'gs://dataeng-proj-bucket'
+
+def get_secret_data(secret_id, version_id, project_id = "dataeng-proj", client = client):
+  secret_detail = f"projects/{project_id}/secrets/{secret_id}/versions/{version_id}"
+  response = client.access_secret_version(request={"name": secret_detail})
+  return response
 
 movie_review_df = spark.read.csv(
   f"{GCP_PROJECT_BUCKET}/data/movie_review.csv",
@@ -24,6 +30,10 @@ log_reviews_df = spark.read.csv(
   header = True,
   inferSchema = True
 )
+
+jdbc_url = get_secret_data("postgres_conn_id", 1).payload.data.decode("UTF-8")
+pg_user = get_secret_data("pg_user", 1).payload.data.decode("UTF-8")
+pg_password = get_secret_data("pg_password", 1).payload.data.decode("UTF-8")
 
 # %%
 tokenizer = Tokenizer(inputCol="review_str", outputCol="review_tokenized")
@@ -54,5 +64,14 @@ logs_df = log_reviews_df.selectExpr(
 ).select(to_date(col('logs.logDate'), 'MM-dd-yyyy').alias("log_date"), "logs.*").drop("logDate")
 logs_df.show(10)
 
-reviews.write.save(f'{GCP_PROJECT_BUCKET}/job-result/reviews/', mode='overwrite')
-logs_df.write.save(f'{GCP_PROJECT_BUCKET}/job-result/logs/', mode='overwrite')
+user_purchase_df = spark.read.jdbc(
+    jdbc_url, "movies_schema.user_purchase", properties={
+        "user": pg_user,
+        "password": pg_password,
+        "driver": "org.postgresql.Driver"
+    }
+)
+
+reviews.write.save(f'{GCP_PROJECT_BUCKET}/job-results/reviews/', mode='overwrite')
+logs_df.write.save(f'{GCP_PROJECT_BUCKET}/job-results/logs/', mode='overwrite')
+user_purchase_df.write.save(f"{GCP_PROJECT_BUCKET}/job-results/user_purchase", mode="overwrite")

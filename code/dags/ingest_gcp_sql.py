@@ -10,6 +10,7 @@ from airflow.models import Variable
 from airflow.operators.dummy_operator import DummyOperator
 from airflow.contrib.operators.gcp_sql_operator import CloudSQLExecuteQueryOperator, CloudSqlInstanceImportOperator
 from airflow.providers.google.cloud.operators.dataproc import (
+  ClusterGenerator,
   DataprocCreateClusterOperator,
   DataprocDeleteClusterOperator,
   DataprocSubmitJobOperator
@@ -37,6 +38,7 @@ pyspark_job_object = "code/transform_reviews.py"
 schema_table_name = "movies_schema.user_purchase"
 
 SQL = f"""
+DROP SCHEMA IF EXISTS movies_schema CASCADE;
 CREATE SCHEMA IF NOT EXISTS movies_schema;
 CREATE TABLE IF NOT EXISTS {schema_table_name} (
   invoice_number varchar(10),
@@ -65,20 +67,27 @@ PYSPARK_JOB = {
   "reference": {"project_id": GCP_PROJECT_ID},
   "placement": {"cluster_name": CLUSTER_NAME},
   "pyspark_job": {
-    "main_python_file_uri": f"gs://{GCS_PROJECT_BUCKET}/{pyspark_job_object}"
+    "main_python_file_uri": f"gs://{GCS_PROJECT_BUCKET}/{pyspark_job_object}",
+    "jar_file_uris": [
+      f"gs://{GCS_PROJECT_BUCKET}/resources/postgresql-42.4.0.jar"
+    ]
   }
 }
 
-cluster_config_json = {
-  "master_config": {
-    "num_instances": 1,
-    "machine_type_uri": "n1-standard-2",
-    "disk_config": {"boot_disk_type": "pd-standard", "boot_disk_size_gb": 100}
-  },
-  "worker_config": {
-    "num_instances": 0
-  }
-}
+CLUSTER_CONFIG = ClusterGenerator(
+  project_id = GCP_PROJECT_ID,
+  cluster_name = CLUSTER_NAME,
+  master_machine_type = "n1-standard-2",
+  worker_machine_type = "n1-standard-2",
+  num_workers = 2,
+  master_disk_type = "pd-standard",
+  master_disk_size = 30,
+  worker_disk_type = "pd-standard",
+  worker_disk_size = 30,
+  init_actions_uris = ["gs://goog-dataproc-initialization-actions-us-central1/python/pip-install.sh"],
+  metadata = {'PIP_PACKAGES': 'google-cloud-secret-manager'},
+  service_account_scopes = ["https://www.googleapis.com/auth/cloud-platform"]
+).make()
 
 with DAG (
   dag_id = "load_data",
@@ -108,7 +117,7 @@ with DAG (
   create_cluster = DataprocCreateClusterOperator(
     task_id = "create_cluster",
     project_id = GCP_PROJECT_ID,
-    cluster_config = cluster_config_json,
+    cluster_config = CLUSTER_CONFIG,
     region = GCP_REGION,
     cluster_name = CLUSTER_NAME
   )
