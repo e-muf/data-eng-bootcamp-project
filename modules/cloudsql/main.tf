@@ -11,6 +11,12 @@ resource "google_sql_database_instance" "sql_instance" {
     location_preference {
       zone = var.location
     }
+
+    ip_configuration {
+      authorized_networks {
+        value = "0.0.0.0/0"
+      }
+    }
   }
 
   deletion_protection = false
