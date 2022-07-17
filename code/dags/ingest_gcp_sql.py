@@ -95,11 +95,11 @@ with DAG (
   schedule_interval = "0 5 * * *",
 ) as dag:
   dag_start = DummyOperator(
-    task_id = "dag_start"
+    task_id = "start_workload"
   )
 
   dag_end = DummyOperator(
-    task_id = "dag_end"
+    task_id = "end_workload"
   )
 
   ddl_user_purchase_task = CloudSQLExecuteQueryOperator(
@@ -115,7 +115,7 @@ with DAG (
   )
 
   create_cluster = DataprocCreateClusterOperator(
-    task_id = "create_cluster",
+    task_id = "create_dataproc_cluster",
     project_id = GCP_PROJECT_ID,
     cluster_config = CLUSTER_CONFIG,
     region = GCP_REGION,
@@ -123,20 +123,20 @@ with DAG (
   )
 
   pyspark_task = DataprocSubmitJobOperator(
-    task_id = "pyspark_task",
+    task_id = "submit_pyspark_job",
     job = PYSPARK_JOB,
     location = GCP_REGION,
     project_id = GCP_PROJECT_ID
   )
 
   delete_cluster = DataprocDeleteClusterOperator(
-    task_id = "delete_cluster",
+    task_id = "delete_dataproc_cluster",
     project_id = GCP_PROJECT_ID,
     cluster_name = CLUSTER_NAME,
     region = GCP_REGION
   )
 
   (dag_start >> 
-    ddl_user_purchase_task >> sql_import_task >>
-    create_cluster >> pyspark_task >> delete_cluster >> 
+    [ddl_user_purchase_task, create_cluster] >> sql_import_task >>
+    pyspark_task >> delete_cluster >> 
   dag_end)
