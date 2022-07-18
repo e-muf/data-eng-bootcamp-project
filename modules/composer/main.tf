@@ -14,6 +14,8 @@ resource "google_composer_environment" "composer_cluster" {
         "GCS_SOURCE_DATA_BUCKET" = var.project_bucket
         "GCSQL_POSTGRES_DATABASE_NAME" = var.database_name
         "GCSQL_POSTGRES_INSTANCE_NAME_QUERY" = var.instance_name
+        "BQ_RAW_DATASET" = var.raw_movies_dataset
+        "BQ_DWH_DATASET" = var.dwh_movies_dataset
       }
     }
   }

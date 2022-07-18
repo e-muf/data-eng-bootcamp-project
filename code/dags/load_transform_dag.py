@@ -9,6 +9,7 @@ from airflow import DAG
 from airflow.models import Variable
 from airflow.operators.dummy_operator import DummyOperator
 from airflow.contrib.operators.gcp_sql_operator import CloudSQLExecuteQueryOperator, CloudSqlInstanceImportOperator
+from airflow.contrib.operators.gcs_to_gcs import GoogleCloudStorageToGoogleCloudStorageOperator
 from airflow.providers.google.cloud.operators.dataproc import (
   ClusterGenerator,
   DataprocCreateClusterOperator,
@@ -90,19 +91,15 @@ CLUSTER_CONFIG = ClusterGenerator(
 ).make()
 
 with DAG (
-  dag_id = "load_data",
+  dag_id = "load_transform_dag",
   default_args = args,
   schedule_interval = "0 5 * * *",
 ) as dag:
-  dag_start = DummyOperator(
+  start_workload = DummyOperator(
     task_id = "start_workload"
   )
 
-  dag_end = DummyOperator(
-    task_id = "end_workload"
-  )
-
-  ddl_user_purchase_task = CloudSQLExecuteQueryOperator(
+  create_user_purchase_table = CloudSQLExecuteQueryOperator(
     gcp_cloudsql_conn_id = 'public_postgres_tcp',
     sql = SQL,
     task_id = "create_user_purchase_table"
@@ -111,10 +108,10 @@ with DAG (
   sql_import_task = CloudSqlInstanceImportOperator(
     body = import_body,
     instance = GCSQL_POSTGRES_INSTANCE_NAME_QUERY,
-    task_id = 'gcs_to_cloudsql'
+    task_id = 'sql_import_task'
   )
 
-  create_cluster = DataprocCreateClusterOperator(
+  create_dataproc_cluster = DataprocCreateClusterOperator(
     task_id = "create_dataproc_cluster",
     project_id = GCP_PROJECT_ID,
     cluster_config = CLUSTER_CONFIG,
@@ -122,20 +119,28 @@ with DAG (
     cluster_name = CLUSTER_NAME
   )
 
-  pyspark_task = DataprocSubmitJobOperator(
+  submit_pyspark_job = DataprocSubmitJobOperator(
     task_id = "submit_pyspark_job",
     job = PYSPARK_JOB,
     location = GCP_REGION,
     project_id = GCP_PROJECT_ID
   )
 
-  delete_cluster = DataprocDeleteClusterOperator(
+  delete_dataproc_cluster = DataprocDeleteClusterOperator(
     task_id = "delete_dataproc_cluster",
     project_id = GCP_PROJECT_ID,
     cluster_name = CLUSTER_NAME,
     region = GCP_REGION
   )
 
-  dag_start >> ddl_user_purchase_task >> sql_import_task >> pyspark_task
-  dag_start >> create_cluster >> pyspark_task 
-  pyspark_task >> delete_cluster >> dag_end
+  send_dag_success_signal = GoogleCloudStorageToGoogleCloudStorageOperator(
+    task_id = "send_dag_success_signal",
+    source_bucket = GCS_PROJECT_BUCKET,
+    source_object = "data/signal/_SUCCESS",
+    destination_bucket = GCS_PROJECT_BUCKET,
+    destination_object = "data/signal/load_transform_dag/{{ ds_nodash}}/_SUCCESS"
+  )
+
+  start_workload >> create_user_purchase_table >> sql_import_task >> submit_pyspark_job
+  start_workload >> create_dataproc_cluster >> submit_pyspark_job 
+  submit_pyspark_job >> delete_dataproc_cluster >> send_dag_success_signal

@@ -25,10 +25,15 @@ variable "data_path" {
   type        = string
 }
 
+variable "dags_path" {
+  description = "Path to airflow dags"
+  type        = string
+}
+
 # Cloud SQL
 variable "instance_name" {
   description = "Database instance name"
-  default     = "pg-data-eng12"
+  default     = "pg-data-eng13"
 }
 
 variable "instance_tier" {
@@ -43,7 +48,7 @@ variable "database_version" {
 
 variable "database_name" {
   description = "Database project name"
-  default    = "moviesdb"
+  default     = "moviesdb"
 }
 
 variable "disk_space" {
@@ -61,4 +66,15 @@ variable "db_password" {
   description = "Database administrator password"
   type        = string
   sensitive   = true
+}
+
+# BigQuery
+variable "raw_movies_dataset" {
+  description = "BigQuery dataset which store raw data"
+  type        = string
+}
+
+variable "dwh_movies_dataset" {
+  description = "BigQuery dataset whcih store datawarehouse schema"
+  type        = string
 }

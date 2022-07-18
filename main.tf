@@ -12,7 +12,14 @@ module "gcs" {
   project_id     = var.project_id
   project_bucket = "${var.project_id}-bucket"
   data_path      = var.data_path
+  dags_path      = var.dags_path
   gcs_dag_bucket = module.composer.airflow_dag_gcs_buket
+}
+
+module "bigquery" {
+  source             = "./modules/bigquery"
+  raw_movies_dataset = var.raw_movies_dataset
+  dwh_movies_dataset = var.dwh_movies_dataset
 }
 
 module "cloudsql" {
@@ -43,8 +50,10 @@ module "composer" {
   source         = "./modules/composer"
   project_id     = var.project_id
   region         = var.region
-  location       = var.location 
+  location       = var.location
   project_bucket = "${var.project_id}-bucket"
   instance_name  = module.cloudsql.instance_name
   database_name  = var.database_name
+  raw_movies_dataset = var.raw_movies_dataset
+  dwh_movies_dataset = var.dwh_movies_dataset
 }
