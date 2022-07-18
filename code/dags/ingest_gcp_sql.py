@@ -136,7 +136,6 @@ with DAG (
     region = GCP_REGION
   )
 
-  (dag_start >> 
-    [ddl_user_purchase_task, create_cluster] >> sql_import_task >>
-    pyspark_task >> delete_cluster >> 
-  dag_end)
+  dag_start >> ddl_user_purchase_task >> sql_import_task >> pyspark_task
+  dag_start >> create_cluster >> pyspark_task 
+  pyspark_task >> delete_cluster >> dag_end
