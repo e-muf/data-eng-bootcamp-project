@@ -25,3 +25,16 @@ resource "google_storage_bucket_object" "upload_dag" {
   bucket       = var.gcs_dag_bucket
 }
 
+resource "google_storage_bucket_object" "upload_spark_job" {
+  name         = "code/transform_reviews.py"
+  bucket       = google_storage_bucket.project_bucket.name
+  content_type = "text/x-python"
+  source       = "code/spark-jobs/transform_reviews.py"
+}
+
+resource "google_storage_bucket_object" "upload_postgres_driver" {
+  name         = "resources/postgresql-42.4.0.jar"
+  bucket       = google_storage_bucket.project_bucket.name
+  content_type = "application/java-archive"
+  source       = "resources/postgresql-42.4.0.jar"
+}

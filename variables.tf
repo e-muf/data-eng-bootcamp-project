@@ -28,7 +28,7 @@ variable "data_path" {
 # Cloud SQL
 variable "instance_name" {
   description = "Database instance name"
-  default     = "pg-data-eng3"
+  default     = "pg-data-eng12"
 }
 
 variable "instance_tier" {
