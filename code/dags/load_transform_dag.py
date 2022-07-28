@@ -138,7 +138,7 @@ with DAG (
     source_bucket = GCS_PROJECT_BUCKET,
     source_object = "data/signal/_SUCCESS",
     destination_bucket = GCS_PROJECT_BUCKET,
-    destination_object = "data/signal/load_transform_dag/{{ ds_nodash}}/_SUCCESS"
+    destination_object = "data/signal/load_transform_dag/{{ ds_nodash }}/_SUCCESS"
   )
 
   start_workload >> create_user_purchase_table >> sql_import_task >> submit_pyspark_job
