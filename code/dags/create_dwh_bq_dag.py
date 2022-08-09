@@ -62,6 +62,9 @@ bq_dim_date_table_id = f"{GCP_PROJECT_ID}.{BQ_DWH_DATASET}.{bq_dim_date_table_na
 bq_fact_movie_analytics_table_name = "fact_movie_analytics"
 bq_fact_movie_analytics_table_id = f"{GCP_PROJECT_ID}.{BQ_DWH_DATASET}.{bq_fact_movie_analytics_table_name}"
 
+bq_fact_customer_analytics_table_name = "fact_customer_analytics"
+bq_fact_customer_analytics_table_id = f"{GCP_PROJECT_ID}.{BQ_DWH_DATASET}.{bq_fact_customer_analytics_table_name}"
+
 with DAG(
   dag_id = "create_dwh_bq_dag",
   default_args = args,
@@ -237,9 +240,25 @@ with DAG(
     priority = "BATCH"
   )
 
+  dwh_fact_customer_analytics = BigQueryOperator(
+    task_id = "dwh_fact_customer_analytics",
+    sql = f"""SELECT 
+                customer_id, 
+                EXTRACT(MONTH FROM invoice_date) month,
+                EXTRACT(YEAR FROM invoice_date) year, 
+                SUM(quantity * unit_price) AS amount_spent
+              FROM `raw_movies.user_purchase`
+              GROUP BY customer_id, month, year;""",
+    destination_dataset_table =  bq_fact_customer_analytics_table_id,
+    write_disposition = "WRITE_TRUNCATE",
+    create_disposition = "CREATE_IF_NEEDED",
+    use_legacy_sql = False,
+    priority = "BATCH"
+  )
+
   input_sensor >> gcs_to_bq_movie_review >> dwh_fact_movie_analytics
   input_sensor >> gcs_to_bq_user_purchase >> dwh_fact_movie_analytics
   input_sensor >> gcs_to_bq_us_regions >> dwh_fact_movie_analytics
   input_sensor >> gcs_to_bq_review_logs >> [dwh_dim_devices, dwh_dim_os, dwh_dim_location, dwh_dim_date, dwh_dim_browser] >> dwh_fact_movie_analytics
-  dwh_fact_movie_analytics >> finish_workload
+  dwh_fact_movie_analytics >> dwh_fact_customer_analytics >> finish_workload
 

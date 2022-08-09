@@ -33,7 +33,7 @@ variable "dags_path" {
 # Cloud SQL
 variable "instance_name" {
   description = "Database instance name"
-  default     = "pg-data-eng3"
+  default     = "pg-data-eng"
 }
 
 variable "instance_tier" {
