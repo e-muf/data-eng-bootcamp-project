@@ -12,9 +12,9 @@ spark = SparkSession.builder \
 
 client = secretmanager.SecretManagerServiceClient()
 # %%
-GCP_PROJECT_BUCKET = 'gs://dataeng-proj-bucket'
+GCP_PROJECT_BUCKET = 'gs://data-bootcamp-project-357503-bucket'
 
-def get_secret_data(secret_id, version_id, project_id = "dataeng-proj", client = client):
+def get_secret_data(secret_id, version_id, project_id = "data-bootcamp-project-357503", client = client):
   secret_detail = f"projects/{project_id}/secrets/{secret_id}/versions/{version_id}"
   response = client.access_secret_version(request={"name": secret_detail})
   return response
@@ -47,12 +47,13 @@ reviews = reviews.withColumn("positive_review",
                              array_contains(review_words, "funny")'''))
 reviews = reviews.withColumn("inserted_date", current_timestamp())
 reviews = reviews.select(col("id_review").alias("review_id"),
-                         col("cid").alias("user_id"),
+                         col("cid").alias("customer_id"),
                          col("inserted_date"),
                          when(col("positive_review") == True, 1)
                          .otherwise(0).alias("positive_review"))
 # %%
 logs_df = log_reviews_df.selectExpr(
+    "array(id_review) review_id",
     "xpath(log, './reviewlog/log/logDate/text()') logDate",
     "xpath(log, './reviewlog/log/device/text()') device",
     "xpath(log, './reviewlog/log/location/text()') location",
@@ -60,9 +61,15 @@ logs_df = log_reviews_df.selectExpr(
     "xpath(log, './reviewlog/log/ipAddress/text()') ip",
     "xpath(log, './reviewlog/log/phoneNumber/text()') phone_number",
 ).selectExpr(
-    "explode(arrays_zip(logDate, device, location, os, ip, phone_number)) logs"
+    "explode(arrays_zip(review_id, logDate, device, location, os, ip, phone_number)) logs"
 ).select(to_date(col('logs.logDate'), 'MM-dd-yyyy').alias("log_date"), "logs.*").drop("logDate")
-logs_df.show(10)
+
+logs_df = logs_df.withColumn("browser",
+  when((col("device") == "Google Android") | (col("device") == "Microsoft Windows"), "Google Chrome")
+  .when((col("device") == "Linux"), "Mozilla Firefox")
+  .when((col("device") == "Apple MacOS") | (col("device") == "Apple iOS"), "Safari")
+  .otherwise("Opera")
+)
 
 user_purchase_df = spark.read.jdbc(
     jdbc_url, "movies_schema.user_purchase", properties={

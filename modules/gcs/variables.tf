@@ -19,6 +19,11 @@ variable "data_path" {
   type        = string
 }
 
+variable "dags_path" {
+  description = "Path to airflow dags"
+  type        = string
+}
+
 variable "gcs_dag_bucket" {
   description = "GCS bucket for airflow dags"
 }
